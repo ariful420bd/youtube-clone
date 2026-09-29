@@ -19,6 +19,9 @@ function WatchContent() {
   const searchParams = useSearchParams()
   const roomId = searchParams.get('v') || 'default'
   const video = videoData[roomId] || videoData['cat-lover-2024']
+  
+  // চ্যাট লুকানো/দেখানোর স্টেট
+  const [isChatOpen, setIsChatOpen] = useState(true)
 
   return (
     <main style={{
@@ -26,8 +29,10 @@ function WatchContent() {
       maxWidth: '1700px',
       margin: '0 auto',
       display: 'grid',
-      gridTemplateColumns: 'minmax(0, 1fr) 400px',
-      gap: '24px'
+      // চ্যাট বন্ধ থাকলে ভিডিও পুরো জায়গা নেবে, খোলা থাকলে ৪০০ পিক্সেল জায়গা ছেড়ে দেবে
+      gridTemplateColumns: isChatOpen ? 'minmax(0, 1fr) 400px' : '1fr',
+      gap: '24px',
+      transition: 'all 0.3s ease'
     }}>
       {/* ---- বাম দিক: ভিডিও প্লেয়ার ---- */}
       <div>
@@ -46,9 +51,23 @@ function WatchContent() {
           />
         </div>
 
-        <h1 style={{ fontSize: '20px', fontWeight: 'bold', marginTop: '16px' }}>
-          {video.title}
-        </h1>
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '16px' }}>
+          <h1 style={{ fontSize: '20px', fontWeight: 'bold' }}>
+            {video.title}
+          </h1>
+          
+          {/* চ্যাট Hide/Show করার বাটন */}
+          <button 
+            onClick={() => setIsChatOpen(!isChatOpen)}
+            style={{
+              background: '#272727', color: '#fff', border: '1px solid #383838',
+              padding: '8px 16px', borderRadius: '20px', fontSize: '14px',
+              display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer'
+            }}
+          >
+            {isChatOpen ? '❯ Hide Chat' : '❮ Show Chat'}
+          </button>
+        </div>
 
         <div style={{
           display: 'flex', alignItems: 'center',
@@ -95,8 +114,8 @@ function WatchContent() {
         </div>
       </div>
 
-      {/* ---- ডান দিক: Live Chat (আসল চ্যাট এখানে) ---- */}
-      <LiveChat roomId={roomId} />
+      {/* ---- ডান দিক: Live Chat (চ্যাট খোলা থাকলে দেখাবে) ---- */}
+      {isChatOpen && <LiveChat roomId={roomId} />}
     </main>
   )
 }
@@ -140,6 +159,10 @@ function LiveChat({ roomId }) {
       // ডিলিট সিগন্যাল হ্যান্ডেল করা
       .on('broadcast', { event: 'delete' }, ({ payload }) => {
         setMessages(prev => prev.filter(m => m.id !== payload.id))
+      })
+      // পুরো চ্যাট ক্লিয়ার করার সিগন্যাল হ্যান্ডেল করা
+      .on('broadcast', { event: 'clear' }, () => {
+        setMessages([])
       })
       .subscribe(status => {
         if (status === 'SUBSCRIBED') setConnected(true)
@@ -230,6 +253,13 @@ function LiveChat({ roomId }) {
     })
   }
 
+  // পুরো চ্যাট হিস্টোরি ডিলিট করার ফাংশন
+  const clearChat = () => {
+    if (!window.confirm('আপনি কি你们两个-এর সব মেসেজ ডিলিট করতে চান?')) return
+    channelRef.current.send({ type: 'broadcast', event: 'clear' })
+    setMessages([])
+  }
+
   return (
     <div style={{
       background: '#0f0f0f',
@@ -239,15 +269,29 @@ function LiveChat({ roomId }) {
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden', position: 'sticky', top: '80px'
     }}>
+      {/* চ্যাট হেডার */}
       <div style={{
-        padding: '14px 16px',
+        padding: '12px 16px',
         borderBottom: '1px solid #272727',
         display: 'flex', justifyContent: 'space-between', alignItems: 'center'
       }}>
         <span style={{ fontSize: '16px', fontWeight: 500 }}>Live chat</span>
-        <span style={{ fontSize: '13px', color: '#aaa' }}>Top chat ▾</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <button 
+            onClick={clearChat}
+            title="Clear Chat"
+            style={{
+              background: 'transparent', border: 'none', color: '#aaa',
+              fontSize: '13px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px'
+            }}
+          >
+            🗑️ Clear
+          </button>
+          <span style={{ fontSize: '13px', color: '#aaa' }}>Top chat ▾</span>
+        </div>
       </div>
 
+      {/* মেসেজ এরিয়া */}
       <div style={{
         flex: 1, overflowY: 'auto',
         padding: '12px 16px', display: 'flex', flexDirection: 'column', gap: '10px'
@@ -258,7 +302,6 @@ function LiveChat({ roomId }) {
           </p>
         )}
         
-        {/* ============== মেসেঞ্জার স্টাইল মেসেজ রেন্ডারিং ============== */}
         {messages.map(m => {
           const isMe = m.user === name;
           return (
@@ -319,6 +362,7 @@ function LiveChat({ roomId }) {
         <div ref={bottomRef} />
       </div>
 
+      {/* মেসেজ ইনপুট এরিয়া */}
       <div style={{ padding: '12px 16px', borderTop: '1px solid #272727' }}>
         {!nameSet ? (
           <div>
