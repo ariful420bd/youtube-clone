@@ -117,7 +117,6 @@ function WatchContent() {
       </div>
 
       {/* ---- ডান দিক: Live Chat (চ্যাট খোলা থাকলে দেখাবে) ---- */}
-      {/* এখানে isChatOpen এবং setIsChatOpen পাস করে দেওয়া হয়েছে */}
       {isChatOpen && <LiveChat roomId={roomId} setIsChatOpen={setIsChatOpen} />}
     </main>
   )
@@ -190,11 +189,29 @@ function LiveChat({ roomId, setIsChatOpen }) {
     })
   }
 
-  const sendText = () => {
-    if (!input.trim()) return
-    send({ kind: 'text', text: input.trim() })
-    setInput('')
-  }
+  // ============== এখানে হোয়াটসঅ্যাপ নোটিফিকেশন যুক্ত করা হয়েছে ==============
+  const sendText = async () => {
+    if (!input.trim()) return;
+
+    const messageText = input.trim();
+
+    // ১. চ্যাটে মেসেজ পাঠানো (Supabase Realtime)
+    send({ kind: 'text', text: messageText });
+
+    // ২. হোয়াটসঅ্যাপে নোটিফিকেশন পাঠানো
+    try {
+      await fetch('/api/send-whatsapp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: `New message from ${name}: ${messageText}` }),
+      });
+    } catch (error) {
+      console.error("Failed to send WhatsApp notification:", error);
+    }
+
+    setInput('');
+  };
+  // =========================================================================
 
   const sendImage = async (file) => {
     if (!file) return
@@ -266,7 +283,7 @@ function LiveChat({ roomId, setIsChatOpen }) {
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden', position: 'sticky', top: '80px'
     }}>
-      {/* চ্যাট হেডার (এখানে Clear এবং Hide বাটন যোগ করা হয়েছে) */}
+      {/* চ্যাট হেডার (Clear এবং Hide বাটন সহ) */}
       <div style={{
         padding: '12px 16px',
         borderBottom: '1px solid #272727',
@@ -286,7 +303,7 @@ function LiveChat({ roomId, setIsChatOpen }) {
           </button>
           <span style={{ fontSize: '13px', color: '#aaa' }}>Top chat ▾</span>
           
-          {/* Hide Chat বাটনটি এখানে বসানো হয়েছে */}
+          {/* Hide Chat বাটন */}
           <button 
             onClick={() => setIsChatOpen(false)}
             title="Hide Chat"
