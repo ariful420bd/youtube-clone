@@ -131,6 +131,16 @@ function LiveChat({ roomId }) {
           setMessages(prev => prev.filter(m => m.id !== payload.id))
         }, 5 * 60 * 1000) // ৫ মিনিট পর মুছে যাবে
       })
+      // এডিট সিগন্যাল হ্যান্ডেল করা
+      .on('broadcast', { event: 'edit' }, ({ payload }) => {
+        setMessages(prev => prev.map(m => 
+          m.id === payload.id ? { ...m, text: payload.newText } : m
+        ))
+      })
+      // ডিলিট সিগন্যাল হ্যান্ডেল করা
+      .on('broadcast', { event: 'delete' }, ({ payload }) => {
+        setMessages(prev => prev.filter(m => m.id !== payload.id))
+      })
       .subscribe(status => {
         if (status === 'SUBSCRIBED') setConnected(true)
       })
@@ -199,6 +209,27 @@ function LiveChat({ roomId }) {
     setRecording(false)
   }
 
+  // মেসেজ ডিলিট করার ফাংশন
+  const deleteMessage = (id) => {
+    if (!window.confirm('আপনি কি এই মেসেজটি ডিলিট করতে চান?')) return
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'delete',
+      payload: { id }
+    })
+  }
+
+  // মেসেজ এডিট করার ফাংশন
+  const editMessage = (id, oldText) => {
+    const newText = window.prompt('মেসেজ এডিট করুন:', oldText)
+    if (newText === null || newText.trim() === '' || newText === oldText) return
+    channelRef.current.send({
+      type: 'broadcast',
+      event: 'edit',
+      payload: { id, newText: newText.trim() }
+    })
+  }
+
   return (
     <div style={{
       background: '#0f0f0f',
@@ -226,22 +257,65 @@ function LiveChat({ roomId }) {
             Welcome to live chat! 👋
           </p>
         )}
-        {messages.map(m => (
-          <div key={m.id} style={{ fontSize: '14px', lineHeight: 1.4 }}>
-            <span style={{ color: '#aaa', fontWeight: 500, marginRight: '6px' }}>
-              {m.user}:
-            </span>
-            {m.kind === 'text' && <span>{m.text}</span>}
-            {m.kind === 'image' && (
-              <img src={m.url} alt="" style={{
-                maxWidth: '100%', borderRadius: '8px', marginTop: '4px', display: 'block'
-              }} />
-            )}
-            {m.kind === 'voice' && (
-              <audio controls src={m.url} style={{ width: '100%', marginTop: '4px', height: '32px' }} />
-            )}
-          </div>
-        ))}
+        
+        {/* ============== মেসেঞ্জার স্টাইল মেসেজ রেন্ডারিং ============== */}
+        {messages.map(m => {
+          const isMe = m.user === name;
+          return (
+            <div key={m.id} style={{
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: isMe ? 'flex-end' : 'flex-start',
+              marginBottom: '8px'
+            }}>
+              {!isMe && (
+                <span style={{ color: '#aaa', fontSize: '12px', marginBottom: '4px', marginLeft: '8px' }}>
+                  {m.user}
+                </span>
+              )}
+
+              <div style={{ display: 'flex', alignItems: 'center', gap: '6px', flexDirection: isMe ? 'row-reverse' : 'row' }}>
+                <div style={{
+                  background: isMe ? '#3ea6ff' : '#272727',
+                  color: isMe ? '#0f0f0f' : '#fff',
+                  padding: '8px 14px',
+                  borderRadius: isMe ? '18px 18px 4px 18px' : '18px 18px 18px 4px',
+                  maxWidth: '220px',
+                  wordWrap: 'break-word',
+                  fontSize: '14px',
+                  lineHeight: '1.4',
+                  position: 'relative'
+                }}>
+                  {m.kind === 'text' && <span>{m.text}</span>}
+                  {m.kind === 'image' && (
+                    <img src={m.url} alt="" style={{
+                      maxWidth: '100%', maxHeight: '200px',
+                      borderRadius: '12px', display: 'block', cursor: 'pointer'
+                    }} onClick={() => window.open(m.url, '_blank')} />
+                  )}
+                  {m.kind === 'voice' && (
+                    <audio controls src={m.url} style={{ width: '200px', height: '32px' }} />
+                  )}
+                </div>
+
+                {isMe && m.kind === 'text' && (
+                  <div style={{ display: 'flex', gap: '4px', opacity: 0.6 }}>
+                    <button 
+                      onClick={() => editMessage(m.id, m.text)}
+                      title="Edit"
+                      style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '12px', cursor: 'pointer', padding: '2px' }}
+                    >✏️</button>
+                    <button 
+                      onClick={() => deleteMessage(m.id)}
+                      title="Delete"
+                      style={{ background: 'transparent', border: 'none', color: '#ff4d4d', fontSize: '12px', cursor: 'pointer', padding: '2px' }}
+                    >🗑️</button>
+                  </div>
+                )}
+              </div>
+            </div>
+          )
+        })}
         <div ref={bottomRef} />
       </div>
 
