@@ -56,17 +56,19 @@ function WatchContent() {
             {video.title}
           </h1>
           
-          {/* চ্যাট Hide/Show করার বাটন */}
-          <button 
-            onClick={() => setIsChatOpen(!isChatOpen)}
-            style={{
-              background: '#272727', color: '#fff', border: '1px solid #383838',
-              padding: '8px 16px', borderRadius: '20px', fontSize: '14px',
-              display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer'
-            }}
-          >
-            {isChatOpen ? '❯ Hide Chat' : '❮ Show Chat'}
-          </button>
+          {/* চ্যাট বন্ধ থাকলে শুধু এই Show Chat বাটনটি দেখা যাবে */}
+          {!isChatOpen && (
+            <button 
+              onClick={() => setIsChatOpen(true)}
+              style={{
+                background: '#272727', color: '#fff', border: '1px solid #383838',
+                padding: '8px 16px', borderRadius: '20px', fontSize: '14px',
+                display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer'
+              }}
+            >
+              ❮ Show Chat
+            </button>
+          )}
         </div>
 
         <div style={{
@@ -115,13 +117,14 @@ function WatchContent() {
       </div>
 
       {/* ---- ডান দিক: Live Chat (চ্যাট খোলা থাকলে দেখাবে) ---- */}
-      {isChatOpen && <LiveChat roomId={roomId} />}
+      {/* এখানে isChatOpen এবং setIsChatOpen পাস করে দেওয়া হয়েছে */}
+      {isChatOpen && <LiveChat roomId={roomId} setIsChatOpen={setIsChatOpen} />}
     </main>
   )
 }
 
 /* ============== Live Chat কম্পোনেন্ট ============== */
-function LiveChat({ roomId }) {
+function LiveChat({ roomId, setIsChatOpen }) {
   const [messages, setMessages] = useState([])
   const [input, setInput] = useState('')
   const [name, setName] = useState('')
@@ -150,17 +153,14 @@ function LiveChat({ roomId }) {
           setMessages(prev => prev.filter(m => m.id !== payload.id))
         }, 5 * 60 * 1000) // ৫ মিনিট পর মুছে যাবে
       })
-      // এডিট সিগন্যাল হ্যান্ডেল করা
       .on('broadcast', { event: 'edit' }, ({ payload }) => {
         setMessages(prev => prev.map(m => 
           m.id === payload.id ? { ...m, text: payload.newText } : m
         ))
       })
-      // ডিলিট সিগন্যাল হ্যান্ডেল করা
       .on('broadcast', { event: 'delete' }, ({ payload }) => {
         setMessages(prev => prev.filter(m => m.id !== payload.id))
       })
-      // পুরো চ্যাট ক্লিয়ার করার সিগন্যাল হ্যান্ডেল করা
       .on('broadcast', { event: 'clear' }, () => {
         setMessages([])
       })
@@ -232,7 +232,6 @@ function LiveChat({ roomId }) {
     setRecording(false)
   }
 
-  // মেসেজ ডিলিট করার ফাংশন
   const deleteMessage = (id) => {
     if (!window.confirm('আপনি কি এই মেসেজটি ডিলিট করতে চান?')) return
     channelRef.current.send({
@@ -242,7 +241,6 @@ function LiveChat({ roomId }) {
     })
   }
 
-  // মেসেজ এডিট করার ফাংশন
   const editMessage = (id, oldText) => {
     const newText = window.prompt('মেসেজ এডিট করুন:', oldText)
     if (newText === null || newText.trim() === '' || newText === oldText) return
@@ -253,7 +251,6 @@ function LiveChat({ roomId }) {
     })
   }
 
-  // পুরো চ্যাট হিস্টোরি ডিলিট করার ফাংশন
   const clearChat = () => {
     if (!window.confirm('আপনি কি你们两个-এর সব মেসেজ ডিলিট করতে চান?')) return
     channelRef.current.send({ type: 'broadcast', event: 'clear' })
@@ -269,7 +266,7 @@ function LiveChat({ roomId }) {
       display: 'flex', flexDirection: 'column',
       overflow: 'hidden', position: 'sticky', top: '80px'
     }}>
-      {/* চ্যাট হেডার */}
+      {/* চ্যাট হেডার (এখানে Clear এবং Hide বাটন যোগ করা হয়েছে) */}
       <div style={{
         padding: '12px 16px',
         borderBottom: '1px solid #272727',
@@ -288,6 +285,19 @@ function LiveChat({ roomId }) {
             🗑️ Clear
           </button>
           <span style={{ fontSize: '13px', color: '#aaa' }}>Top chat ▾</span>
+          
+          {/* Hide Chat বাটনটি এখানে বসানো হয়েছে */}
+          <button 
+            onClick={() => setIsChatOpen(false)}
+            title="Hide Chat"
+            style={{
+              background: 'transparent', border: 'none', color: '#aaa',
+              fontSize: '16px', cursor: 'pointer', padding: '0 4px',
+              display: 'flex', alignItems: 'center'
+            }}
+          >
+            ❯
+          </button>
         </div>
       </div>
 
